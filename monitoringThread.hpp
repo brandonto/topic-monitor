@@ -42,7 +42,7 @@ namespace topicMonitor
 {
 
 typedef ThreadSafeQueue<WorkEntry*> InputQueue;
-typedef std::unordered_map<std::string, std::string> MonitorFunctionTable;
+typedef std::unordered_map<std::string, std::string> LuaEnvTable;
 
 class MonitoringThread
 {
@@ -72,7 +72,7 @@ private:
     static MonitoringThread* instance_mps;
     InputQueue               inputQueue_m;
     lua_State*               luaState_mp;
-    MonitorFunctionTable     funcTable_m;
+    LuaEnvTable              envTable_m;
 };
 
 } /* namespace topicMonitor */

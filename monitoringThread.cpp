@@ -28,6 +28,8 @@
 //******************************************************************************
 #include "monitoringThread.hpp"
 
+#include "utils.hpp"
+
 namespace topicMonitor
 {
 
@@ -37,6 +39,13 @@ MonitoringThread::MonitoringThread(void)
 {
     luaState_mp = luaL_newstate();
     if (luaState_mp == nullptr) { printf("Fatal error\n"); exit(-1); }
+
+    // Makes all libraries available to lua.
+    //
+    // TODO (BTO): May want to look into only making a subset of libraries
+    //             available to lua.
+    //
+    luaL_openlibs(luaState_mp);
 }
 
 MonitoringThread::~MonitoringThread(void)
@@ -48,28 +57,60 @@ void
 MonitoringThread::handleWorkTypeMessageReceived(
     WorkEntryMessageReceived* entry_p)
 {
+    solClient_returnCode_t rc;
     solClient_opaqueMsg_pt msg_p = entry_p->getMsg();
 
-    uint8_t* smf_p;
-    uint32_t smfLen;
-    solClient_returnCode_t rc;
-    rc = solClient_msg_getSMFPtr(msg_p, &smf_p, &smfLen);
+    //uint8_t* smf_p;
+    //uint32_t smfLen;
+    //rc = solClient_msg_getSMFPtr(msg_p, &smf_p, &smfLen);
+    //if (rc != SOLCLIENT_OK)
+    //{
+    //    printf("Fatal error\n"); exit(-1);
+    //}
+
+    solClient_destination_t dest;
+    rc = solClient_msg_getDestination(msg_p, &dest, sizeof(dest));
     if (rc != SOLCLIENT_OK)
     {
-        printf("Fatal error\n"); exit(-1);
+        printf("Error: could not get message topic\n");
+        return;
     }
 
-    printf("handleWorkTypeMessageReceived(): Received message:\n");
-    solClient_msg_dump(msg_p, nullptr, 0);
-    printf("\n");
+    const char* topic_p = dest.dest;
+    if (envTable_m.find(topic_p) == envTable_m.end())
+    {
+        printf("Error: topic not found in table\n");
+        return;
+    }
+    const char* env_p = envTable_m[topic_p].c_str();
+
+    //printf("handleWorkTypeMessageReceived(): Received message:\n");
+    //solClient_msg_dump(msg_p, nullptr, 0);
+    //printf("\n");
+
+    utils::lua::callFuncInEnv(luaState_mp, "onMessage", env_p);
 }
 
 void
 MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
 {
+    returnCode_t rc;
+
     SubscriptionInfo& info = entry_p->getSubscriptionInfo();
-    printf("handleWorkTypeSubscribe()\n");
-    printf("%s, %s, %u\n\n", info.getTopic(), info.getFilename(), info.getTimeout());
+
+    rc = utils::lua::loadFileInEnv(luaState_mp,
+                                   info.getFilename(),
+                                   info.getFilename());
+    if (rc == returnCode_t::FAILURE)
+    {
+        // TODO (BTO): Put the topic that failed in output and unsubscribe to
+        //             that topic
+        //
+        printf("Error: could not load lua file in env\n");
+        return;
+    }
+
+    envTable_m[info.getTopic()] = info.getFilename();
 }
 
 void

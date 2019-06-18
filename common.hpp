@@ -38,6 +38,8 @@
 namespace topicMonitor
 {
 
+static const size_t MAX_FILENAME_SIZE = 127;
+
 typedef enum class returnCode
 {
     SUCCESS,
@@ -58,7 +60,6 @@ typedef enum class workType
 class SubscriptionInfo
 {
 public:
-    static const size_t MAX_FILENAME_SIZE = 127;
     SubscriptionInfo(void) {}
     ~SubscriptionInfo(void) {}
 

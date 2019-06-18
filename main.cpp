@@ -51,10 +51,10 @@ createAndStartSolClientThread()
     //
     SolClientThread* thread_p = SolClientThread::instance();
 
-    const char* host_p;
-    const char* vpn_p;
-    const char* username_p;
-    const char* password_p;
+    const char* host_p     = nullptr;
+    const char* vpn_p      = nullptr;
+    const char* username_p = nullptr;
+    const char* password_p = nullptr;
 
     // Opens a new lua state and load credentials.lua
     //
@@ -70,13 +70,13 @@ createAndStartSolClientThread()
     //
     // TODO (BTO): Proper error output if file is malformed
     //
-    host_p = luaUtils::getStringValueFromSymbol(L, "host");
+    host_p = utils::lua::getStringValueFromSymbol(L, "host");
     if (host_p == nullptr) { goto cleanup; }
-    vpn_p = luaUtils::getStringValueFromSymbol(L, "vpn");
+    vpn_p = utils::lua::getStringValueFromSymbol(L, "vpn");
     if (vpn_p == nullptr) { goto cleanup; }
-    username_p = luaUtils::getStringValueFromSymbol(L, "username");
+    username_p = utils::lua::getStringValueFromSymbol(L, "username");
     if (username_p == nullptr) { goto cleanup; }
-    password_p = luaUtils::getStringValueFromSymbol(L, "password");
+    password_p = utils::lua::getStringValueFromSymbol(L, "password");
     if (password_p == nullptr) { goto cleanup; }
 
     // Create session
@@ -102,9 +102,17 @@ cleanup:
 returnCode_t
 getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
 {
-    // Opens a new lua state and load subscriptionTable.lua
+    // Opens a new lua state
     //
     lua_State* L = luaL_newstate();
+    if (L == nullptr)
+    {
+        printf("Error: could not allocate lua state\n");
+        return returnCode_t::FAILURE;
+    }
+
+    // Load subscriptionTable.lua
+    //
     luaopen_base(L);
     if (luaL_dofile(L, "subscriptionTable.lua") != 0)
     {
@@ -176,8 +184,6 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
             }
             else if (strcmp(key_p, "timer") == 0)
             {
-                // TODO (BTO): This should check for integers, not numbers...
-                //             fix later.
                 if (!lua_isnumber(L, -1))
                 {
                     printf("Error: subscriptionTable invalid format (timer value not integer)\n");
@@ -194,7 +200,6 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
 
             lua_pop(L, 1); // Pop 'value'... keep 'key' for next iteration
         }
-        lua_pop(L, 1); // Pop 'key' now that we're done with it
 
         if (!seenFile)
         {
@@ -206,7 +211,6 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
 
         lua_pop(L, 1); // Pop 'value'... keep 'key' for next iteration
     }
-    lua_pop(L, 1); // Pop 'key' now that we're done with it
 
     lua_pop(L, 1); // Pop global table subscriptionTable
     lua_close(L);

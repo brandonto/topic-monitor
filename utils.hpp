@@ -30,38 +30,33 @@
 #define _TOPIC_MONITOR_UTILS_HPP_
 
 #include <lua5.2/lua.hpp>
+#include <cstring>
+
+#include "common.hpp"
 
 namespace topicMonitor
 {
+namespace utils
+{
 
-namespace luaUtils
+namespace lua
 {
     const char*
-    getStringValueFromSymbol(lua_State* L, const char* symbol_p)
-    {
-        // Save the current stack size
-        //
-        int luaStackSize = lua_gettop(L);
+    getStringValueFromSymbol(lua_State* L, const char* symbol_p);
 
-        // Push value of the symbol on the stack: if it exists, the stack size
-        // will increase by 1
-        //
-        lua_getglobal(L, symbol_p);
-        if (lua_gettop(L) != luaStackSize + 1) { return nullptr; }
+    returnCode_t
+    loadFileInEnv(lua_State* L, const char* filename_p, const char* env_p);
 
-        // Get the value of the symbol from the stack
-        //
-        if (!lua_isstring(L, -1)) { return nullptr; }
-        const char* value_p = lua_tostring(L, -1);
+    returnCode_t
+    callFuncInEnv(lua_State* L, const char* functionName_p, const char* env_p);
+} /* namespace lua */
 
-        // Pop the value of the symbol to leave stack in original state
-        //
-        lua_pop(L, 1);
+namespace smf
+{
 
-        return value_p;
-    }
-} /* namespace luaUtils */
+} /* namespace smf */
 
+} /* namespace utils */
 } /* namespace topicMonitor */
 
 #endif /* _TOPIC_MONITOR_UTILS_HPP_ */

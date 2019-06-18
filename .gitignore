@@ -2,3 +2,4 @@ backup
 *.swp
 topic-monitor
 credentials.lua
+core
