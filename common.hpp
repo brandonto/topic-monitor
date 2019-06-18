@@ -124,7 +124,7 @@ public:
     WorkEntrySubscribe(void) : WorkEntry(workType_t::SUBSCRIBE) {}
     ~WorkEntrySubscribe(void) {}
 
-    bool setSubscriptionInfo(SubscriptionInfo info) { info_m = info; }
+    void setSubscriptionInfo(SubscriptionInfo info) { info_m = info; }
     SubscriptionInfo& getSubscriptionInfo(void) { return info_m; }
 
 private:
@@ -137,7 +137,7 @@ public:
     WorkEntryUnsubscribe(void) : WorkEntry(workType_t::UNSUBSCRIBE) {}
     ~WorkEntryUnsubscribe(void) {}
 
-    bool setSubscriptionInfo(SubscriptionInfo info) { info_m = info; }
+    void setSubscriptionInfo(SubscriptionInfo info) { info_m = info; }
     SubscriptionInfo& getSubscriptionInfo(void) { return info_m; }
 
 private:

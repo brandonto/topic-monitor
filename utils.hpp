@@ -51,11 +51,6 @@ namespace lua
     callFuncInEnv(lua_State* L, const char* functionName_p, const char* env_p);
 } /* namespace lua */
 
-namespace smf
-{
-
-} /* namespace smf */
-
 } /* namespace utils */
 } /* namespace topicMonitor */
 
