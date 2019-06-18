@@ -192,10 +192,9 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
                 goto cleanup;
             }
 
-            // Remove 'value'... keep 'key' for next iteration
-            //
-            lua_pop(L, 1);
+            lua_pop(L, 1); // Pop 'value'... keep 'key' for next iteration
         }
+        lua_pop(L, 1); // Pop 'key' now that we're done with it
 
         if (!seenFile)
         {
@@ -205,11 +204,11 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
 
         subscriptions.push_back(info);
 
-        // Remove 'value'... keep 'key' for next iteration
-        //
-        lua_pop(L, 1);
+        lua_pop(L, 1); // Pop 'value'... keep 'key' for next iteration
     }
+    lua_pop(L, 1); // Pop 'key' now that we're done with it
 
+    lua_pop(L, 1); // Pop global table subscriptionTable
     lua_close(L);
     return returnCode_t::SUCCESS;
 
