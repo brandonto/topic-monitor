@@ -33,8 +33,9 @@
 
 #include "common.hpp"
 #include "monitoringThread.hpp"
-#include "threadSafeQueue.hpp"
 #include "solClientThread.hpp"
+#include "threadSafeQueue.hpp"
+#include "utils.hpp"
 
 namespace topicMonitor
 {
@@ -54,7 +55,6 @@ createAndStartSolClientThread()
     const char* vpn_p;
     const char* username_p;
     const char* password_p;
-    int luaStackSize;
 
     // Opens a new lua state and load credentials.lua
     //
@@ -70,31 +70,14 @@ createAndStartSolClientThread()
     //
     // TODO (BTO): Proper error output if file is malformed
     //
-    luaStackSize = lua_gettop(L);
-
-    lua_getglobal(L, "host");
-    if (luaStackSize == lua_gettop(L)) { goto cleanup; }
-    if (!lua_isstring(L, -1)) { goto cleanup; }
-    host_p = lua_tostring(L, -1);
-    lua_pop(L, 1);
-
-    lua_getglobal(L, "vpn");
-    if (luaStackSize == lua_gettop(L)) { goto cleanup; }
-    if (!lua_isstring(L, -1)) { goto cleanup; }
-    vpn_p = lua_tostring(L, -1);
-    lua_pop(L, 1);
-
-    lua_getglobal(L, "username");
-    if (luaStackSize == lua_gettop(L)) { goto cleanup; }
-    if (!lua_isstring(L, -1)) { goto cleanup; }
-    username_p = lua_tostring(L, -1);
-    lua_pop(L, 1);
-
-    lua_getglobal(L, "password");
-    if (luaStackSize == lua_gettop(L)) { goto cleanup; }
-    if (!lua_isstring(L, -1)) { goto cleanup; }
-    password_p = lua_tostring(L, -1);
-    lua_pop(L, 1);
+    host_p = luaUtils::getStringValueFromSymbol(L, "host");
+    if (host_p == nullptr) { goto cleanup; }
+    vpn_p = luaUtils::getStringValueFromSymbol(L, "vpn");
+    if (vpn_p == nullptr) { goto cleanup; }
+    username_p = luaUtils::getStringValueFromSymbol(L, "username");
+    if (username_p == nullptr) { goto cleanup; }
+    password_p = luaUtils::getStringValueFromSymbol(L, "password");
+    if (password_p == nullptr) { goto cleanup; }
 
     // Create session
     //
@@ -164,7 +147,6 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
 
         SubscriptionInfo info;
         info.setTopic(topic_p, strlen(topic_p));
-        //printf("%s (length = %d)\n", topic_p, strlen(topic_p));
 
         // Parse value field of subscriptionTable (which is another table)
         //
