@@ -51,7 +51,7 @@ lua::getStringValueFromSymbol(lua_State* L, const char* symbol_p)
     if (!lua_isstring(L, -1)) { return nullptr; }
     const char* value_p = lua_tostring(L, -1);
 
-    // Pop the value of the symbol to leave stack in original state
+    // Pop the value of the symbol to return stack in original state
     //
     lua_pop(L, 1);
 
@@ -68,9 +68,9 @@ lua::loadFileInEnv(lua_State* L, const char* filename_p, const char* env_p)
     // TODO (BTO): Consider making this a configurable path
     //
     static const char* SCRIPT_DIRECTORY = "monitoring-scripts/";
-    static const size_t SCRIPT_DIRECTORY_SIZE = strlen(SCRIPT_DIRECTORY);
+    static const size_t SCRIPT_DIRECTORY_SIZE = sizeof(SCRIPT_DIRECTORY);
 
-    char filepath_a[MAX_FILENAME_SIZE + SCRIPT_DIRECTORY_SIZE + 1];
+    char filepath_a[MAX_FILENAME_SIZE + SCRIPT_DIRECTORY_SIZE];
     strcpy(filepath_a, SCRIPT_DIRECTORY);
     strcat(filepath_a, filename_p);
 
@@ -92,14 +92,16 @@ lua::loadFileInEnv(lua_State* L, const char* filename_p, const char* env_p)
     return returnCode_t::SUCCESS;
 }
 
-// TODO (BTO): This is just a proof of concept... Fix this entire function
-//
 returnCode_t
-lua::callFuncInEnv(lua_State* L, const char* functionName_p, const char* env_p)
+lua::callOnMessageFunc(lua_State* L, const char* env_p, const char* data_p)
 {
     lua_getfield(L, LUA_REGISTRYINDEX, env_p);
-    lua_getfield(L, -1, functionName_p);
-    lua_call(L, 0, 0);
+    lua_getfield(L, -1, "onMessage");
+    lua_pushstring(L, data_p);
+    if (lua_pcall(L, 1, 0, 0) != LUA_OK)
+    {
+        return returnCode_t::FAILURE;
+    }
 
     return returnCode_t::SUCCESS;
 }

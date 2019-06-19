@@ -29,6 +29,7 @@
 #ifndef _TOPIC_MONITOR_SOLCLIENT_THREAD_HPP_
 #define _TOPIC_MONITOR_SOLCLIENT_THREAD_HPP_
 
+#include <mutex>
 #include <solclient/solClient.h>
 #include <solclient/solClientMsg.h>
 
@@ -67,9 +68,10 @@ public:
 private:
     SolClientThread(void);
 
-    static SolClientThread* instance_mps;
+    static SolClientThread*    instance_mps;
     solClient_opaqueContext_pt context_mp;
     solClient_opaqueSession_pt session_mp;
+    std::mutex                 mutex_m;
 };
 
 } /* namespace topicMonitor */

@@ -1,5 +1,5 @@
 function onMessage()
-    print("onMessage (emails)")
+    print("onMessage(): " .. msg)
 end
 
 function onTimer()

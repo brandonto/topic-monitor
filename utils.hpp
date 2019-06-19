@@ -48,7 +48,7 @@ namespace lua
     loadFileInEnv(lua_State* L, const char* filename_p, const char* env_p);
 
     returnCode_t
-    callFuncInEnv(lua_State* L, const char* functionName_p, const char* env_p);
+    callOnMessageFunc(lua_State* L, const char* env_p, const char* data_p);
 } /* namespace lua */
 
 } /* namespace utils */

@@ -212,6 +212,7 @@ SolClientThread::connectSession(void)
 {
     if (session_mp == nullptr) { return returnCode_t::FAILURE; }
 
+    std::lock_guard<std::mutex> lock(mutex_m);
     if (solClient_session_connect(session_mp) != SOLCLIENT_OK)
     {
         return returnCode_t::FAILURE;
@@ -225,6 +226,7 @@ SolClientThread::disconnectSession(void)
 {
     if (session_mp == nullptr) { return returnCode_t::FAILURE; }
 
+    std::lock_guard<std::mutex> lock(mutex_m);
     if (solClient_session_disconnect(session_mp) != SOLCLIENT_OK)
     {
         return returnCode_t::FAILURE;
@@ -237,6 +239,7 @@ returnCode_t
 SolClientThread::topicSubscribe(const char* topic_p)
 {
     solClient_returnCode_t rc;
+    std::lock_guard<std::mutex> lock(mutex_m);
 
     rc = solClient_session_topicSubscribeExt(
             session_mp,
@@ -251,6 +254,7 @@ returnCode_t
 SolClientThread::topicUnsubscribe(const char* topic_p)
 {
     solClient_returnCode_t rc;
+    std::lock_guard<std::mutex> lock(mutex_m);
 
     rc = solClient_session_topicUnsubscribeExt(
             session_mp,

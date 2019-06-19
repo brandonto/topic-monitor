@@ -28,6 +28,7 @@
 //******************************************************************************
 #include "monitoringThread.hpp"
 
+#include "solClientThread.hpp"
 #include "utils.hpp"
 
 namespace topicMonitor
@@ -60,14 +61,6 @@ MonitoringThread::handleWorkTypeMessageReceived(
     solClient_returnCode_t rc;
     solClient_opaqueMsg_pt msg_p = entry_p->getMsg();
 
-    //uint8_t* smf_p;
-    //uint32_t smfLen;
-    //rc = solClient_msg_getSMFPtr(msg_p, &smf_p, &smfLen);
-    //if (rc != SOLCLIENT_OK)
-    //{
-    //    printf("Fatal error\n"); exit(-1);
-    //}
-
     solClient_destination_t dest;
     rc = solClient_msg_getDestination(msg_p, &dest, sizeof(dest));
     if (rc != SOLCLIENT_OK)
@@ -84,11 +77,21 @@ MonitoringThread::handleWorkTypeMessageReceived(
     }
     const char* env_p = envTable_m[topic_p].c_str();
 
-    //printf("handleWorkTypeMessageReceived(): Received message:\n");
-    //solClient_msg_dump(msg_p, nullptr, 0);
-    //printf("\n");
+    const char* data_p;
+    rc = solClient_msg_getBinaryAttachmentString(msg_p, &data_p);
+    if (rc != SOLCLIENT_OK)
+    {
+        printf("Error: could not get message data\n");
+        return;
+    }
 
-    utils::lua::callFuncInEnv(luaState_mp, "onMessage", env_p);
+    if (utils::lua::callOnMessageFunc(luaState_mp, env_p, data_p)
+            != returnCode_t::SUCCESS)
+    {
+        const char* errorMsg_p = lua_tostring(luaState_mp, -1);
+        printf("Error: onMessage() failed with error \"%s\"\n", errorMsg_p);
+        return;
+    }
 }
 
 void
@@ -103,10 +106,18 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
                                    info.getFilename());
     if (rc == returnCode_t::FAILURE)
     {
-        // TODO (BTO): Put the topic that failed in output and unsubscribe to
-        //             that topic
+        printf("Error: could not load lua file in env for topic %s\n",
+            info.getTopic());
+
+        // Unsubscribe from topic
         //
-        printf("Error: could not load lua file in env\n");
+        rc = SolClientThread::instance()->topicUnsubscribe(info.getTopic());
+        if (rc != returnCode_t::SUCCESS)
+        {
+            printf("Error: could not unsubscribe from topic %s\n",
+                info.getTopic());
+            exit(-1);
+        }
         return;
     }
 
@@ -119,6 +130,11 @@ MonitoringThread::handleWorkTypeUnsubscribe(WorkEntryUnsubscribe* entry_p)
     printf("handleWorkTypeUnsubscribe()\n\n");
 }
 
+// TODO (BTO): Consider using a worker thread pool to dispatch MESSAGE_RECEIVED
+//             work items, taking special care to not schedule messages on the
+//             same topic to two different worker threads at the same time and
+//             preserve ordering.
+//
 returnCode_t
 MonitoringThread::start(void)
 {

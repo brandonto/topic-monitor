@@ -1,5 +1,5 @@
-function onMessage()
-    print("onMessage (temperature)")
+function onMessage(msg)
+    print("onMessage(): " .. msg)
 end
 
 function onTimer()
