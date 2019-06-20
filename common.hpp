@@ -29,16 +29,18 @@
 #ifndef _TOPIC_MONITOR_COMMON_HPP_
 #define _TOPIC_MONITOR_COMMON_HPP_
 
-#include <cstring>
 #include <cstdint>
 #include <solclient/solClient.h>
 #include <solclient/solClientMsg.h>
+#include <string>
 #include <vector>
 
 namespace topicMonitor
 {
 
-static const size_t MAX_FILENAME_SIZE = 127;
+const size_t MAX_FILENAME_SIZE = 127;
+const char* const LUA_MESSAGE_FUNC = "onMessage";
+const char* const LUA_TIMER_FUNC   = "onTimer";
 
 typedef enum class returnCode
 {
@@ -57,7 +59,7 @@ typedef enum class workType
 // TODO (BTO): Create a move constructor for this object because it is currently
 //             being copied into WorkEntrySubscribe.
 //
-class SubscriptionInfo
+/*class SubscriptionInfo
 {
 public:
     SubscriptionInfo(void) {}
@@ -88,6 +90,36 @@ private:
     char     topic_ma[SOLCLIENT_BUFINFO_MAX_TOPIC_SIZE + 1];
     char     filename_ma[MAX_FILENAME_SIZE + 1];
     uint32_t timeout_m;
+};*/
+class SubscriptionInfo
+{
+public:
+    SubscriptionInfo(void) {}
+    ~SubscriptionInfo(void) {}
+
+    bool setTopic(std::string topic)
+    {
+        if (topic.length() > SOLCLIENT_BUFINFO_MAX_TOPIC_SIZE) { return false; }
+        topic_m = topic;
+        return true;
+    }
+    std::string getTopic(void) const { return topic_m; }
+
+    bool setFilename(std::string filename)
+    {
+        if (filename.length() > MAX_FILENAME_SIZE) { return false; }
+        filename_m = filename;
+        return true;
+    }
+    std::string getFilename(void) const { return filename_m; }
+
+    void setTimeout(uint32_t timeout) { timeout_m = timeout; }
+    uint32_t getTimeout(void) const { return timeout_m; }
+
+private:
+    std::string topic_m;
+    std::string filename_m;
+    uint32_t    timeout_m;
 };
 typedef std::vector<SubscriptionInfo> SubscriptionInfoList;
 

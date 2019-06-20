@@ -30,7 +30,7 @@
 #define _TOPIC_MONITOR_UTILS_HPP_
 
 #include <lua5.2/lua.hpp>
-#include <cstring>
+#include <string>
 
 #include "common.hpp"
 
@@ -41,14 +41,22 @@ namespace utils
 
 namespace lua
 {
-    const char*
-    getStringValueFromSymbol(lua_State* L, const char* symbol_p);
+    std::string getStringValueFromSymbol(lua_State* L,
+                                         std::string symbol);
 
-    returnCode_t
-    loadFileInEnv(lua_State* L, const char* filename_p, const char* env_p);
+    returnCode_t loadFileInEnv(lua_State* L,
+                               std::string filename,
+                               std::string env);
 
-    returnCode_t
-    callOnMessageFunc(lua_State* L, const char* env_p, const char* data_p);
+    bool isFuncInEnv(lua_State* L,
+                     std::string env,
+                     std::string func);
+
+    returnCode_t callMessageFunc(lua_State* L,
+                                 std::string env,
+                                 std::string data);
+
+    void stackTrace(lua_State *L);
 } /* namespace lua */
 
 } /* namespace utils */

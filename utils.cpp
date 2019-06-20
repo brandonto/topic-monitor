@@ -33,8 +33,8 @@ namespace topicMonitor
 namespace utils
 {
 
-const char*
-lua::getStringValueFromSymbol(lua_State* L, const char* symbol_p)
+std::string
+lua::getStringValueFromSymbol(lua_State* L, std::string symbol)
 {
     // Save the current stack size
     //
@@ -43,19 +43,19 @@ lua::getStringValueFromSymbol(lua_State* L, const char* symbol_p)
     // Push value of the symbol on the stack: if it exists, the stack size will
     // increase by 1
     //
-    lua_getglobal(L, symbol_p);
+    lua_getglobal(L, symbol.c_str());
     if (lua_gettop(L) != luaStackSize + 1) { return nullptr; }
 
     // Get the value of the symbol from the stack
     //
     if (!lua_isstring(L, -1)) { return nullptr; }
-    const char* value_p = lua_tostring(L, -1);
+    std::string value = lua_tostring(L, -1);
 
     // Pop the value of the symbol to return stack in original state
     //
     lua_pop(L, 1);
 
-    return value_p;
+    return value;
 }
 
 // Load lua script into a lua env
@@ -63,18 +63,12 @@ lua::getStringValueFromSymbol(lua_State* L, const char* symbol_p)
 // https://stackoverflow.com/questions/36356498/multiple-scripts-in-a-single-lua-state-and-working-with-env
 //
 returnCode_t
-lua::loadFileInEnv(lua_State* L, const char* filename_p, const char* env_p)
+lua::loadFileInEnv(lua_State* L, std::string filename, std::string env)
 {
     // TODO (BTO): Consider making this a configurable path
     //
-    static const char* SCRIPT_DIRECTORY = "monitoring-scripts/";
-    static const size_t SCRIPT_DIRECTORY_SIZE = sizeof(SCRIPT_DIRECTORY);
-
-    char filepath_a[MAX_FILENAME_SIZE + SCRIPT_DIRECTORY_SIZE];
-    strcpy(filepath_a, SCRIPT_DIRECTORY);
-    strcat(filepath_a, filename_p);
-
-    if (luaL_loadfile(L, filepath_a) != 0)
+    std::string filepath = "monitoring-scripts/" + filename;
+    if (luaL_loadfile(L, filepath.c_str()) != 0)
     {
         return returnCode_t::FAILURE;
     }
@@ -84,26 +78,67 @@ lua::loadFileInEnv(lua_State* L, const char* filename_p, const char* env_p)
     lua_getglobal(L, "_G"); // Pushes global table _G
     lua_setfield(L, -2, "__index"); // T2["__index"] = "_G", pops "_G"
     lua_setmetatable(L, -2); // T1 = T2, pops T2
-    lua_setfield(L, LUA_REGISTRYINDEX, env_p); // REGISTRY[env_p] = T1, pops T1
-    lua_getfield(L, LUA_REGISTRYINDEX, env_p); // Pushes T1
+    lua_setfield(L, LUA_REGISTRYINDEX, env.c_str()); // REGISTRY[env_p] = T1, pops T1
+    lua_getfield(L, LUA_REGISTRYINDEX, env.c_str()); // Pushes T1
     lua_setupvalue(L, 1, 1); // TODO (BTO): What the heck does this do????
     lua_pcall(L, 0, LUA_MULTRET, 0); // Runs the file in the lua env
 
     return returnCode_t::SUCCESS;
 }
 
-returnCode_t
-lua::callOnMessageFunc(lua_State* L, const char* env_p, const char* data_p)
+bool
+lua::isFuncInEnv(lua_State* L, std::string env, std::string func)
 {
-    lua_getfield(L, LUA_REGISTRYINDEX, env_p);
-    lua_getfield(L, -1, "onMessage");
-    lua_pushstring(L, data_p);
+    lua_getfield(L, LUA_REGISTRYINDEX, env.c_str());
+    lua_getfield(L, -1, func.c_str());
+    bool isFunction = lua_isfunction(L, -1);
+    lua_pop(L, 2); // Leave stack in original state
+    return isFunction;
+}
+
+returnCode_t
+lua::callMessageFunc(lua_State* L, std::string env, std::string data)
+{
+    lua_getfield(L, LUA_REGISTRYINDEX, env.c_str());
+    lua_getfield(L, -1, LUA_MESSAGE_FUNC);
+    lua_pushstring(L, data.c_str());
     if (lua_pcall(L, 1, 0, 0) != LUA_OK)
     {
         return returnCode_t::FAILURE;
     }
 
     return returnCode_t::SUCCESS;
+}
+
+void
+lua::stackTrace(lua_State *L)
+{
+    int i;
+    int top = lua_gettop(L);
+    printf("---- Begin Stack ----\n");
+    printf("Stack size: %i\n\n", top);
+    for (i = top; i >= 1; i--)
+    {
+        int t = lua_type(L, i);
+        switch (t)
+        {
+        case LUA_TSTRING:
+            printf("%i -- (%i) ---- `%s'", i, i - (top + 1), lua_tostring(L, i));
+            break;
+        case LUA_TBOOLEAN:
+            printf("%i -- (%i) ---- %s", i, i - (top + 1), lua_toboolean(L, i) ? "true" : "false");
+            break;
+        case LUA_TNUMBER:
+            printf("%i -- (%i) ---- %g", i, i - (top + 1), lua_tonumber(L, i));
+            break;
+        default:
+            printf("%i -- (%i) ---- %s", i, i - (top + 1), lua_typename(L, t));
+            break;
+        }
+        printf("\n");
+    }
+    printf("---- End Stack ----\n");
+    printf("\n");
 }
 
 } /* namespace utils */

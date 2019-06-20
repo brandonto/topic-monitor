@@ -126,10 +126,10 @@ SolClientThread::~SolClientThread(void)
 }
 
 returnCode_t
-SolClientThread::createSession(const char* host_p,
-                               const char* vpn_p,
-                               const char* username_p,
-                               const char* password_p)
+SolClientThread::createSession(std::string host,
+                               std::string vpn,
+                               std::string username,
+                               std::string password)
 {
     solClient_returnCode_t rc;
 
@@ -172,16 +172,16 @@ SolClientThread::createSession(const char* host_p,
     int propIndex = 0;
     const char* sessionProps[20] = {0};
     sessionProps[propIndex++] = SOLCLIENT_SESSION_PROP_HOST;
-    sessionProps[propIndex++] = host_p;
+    sessionProps[propIndex++] = host.c_str();
 
     sessionProps[propIndex++] = SOLCLIENT_SESSION_PROP_VPN_NAME;
-    sessionProps[propIndex++] = vpn_p;
+    sessionProps[propIndex++] = vpn.c_str();
 
     sessionProps[propIndex++] = SOLCLIENT_SESSION_PROP_USERNAME;
-    sessionProps[propIndex++] = username_p;
+    sessionProps[propIndex++] = username.c_str();
 
     sessionProps[propIndex++] = SOLCLIENT_SESSION_PROP_PASSWORD;
-    sessionProps[propIndex++] = password_p;
+    sessionProps[propIndex++] = password.c_str();
 
     rc = solClient_session_create(
             (char **)sessionProps,
@@ -236,7 +236,7 @@ SolClientThread::disconnectSession(void)
 }
 
 returnCode_t
-SolClientThread::topicSubscribe(const char* topic_p)
+SolClientThread::topicSubscribe(std::string topic)
 {
     solClient_returnCode_t rc;
     std::lock_guard<std::mutex> lock(mutex_m);
@@ -244,14 +244,14 @@ SolClientThread::topicSubscribe(const char* topic_p)
     rc = solClient_session_topicSubscribeExt(
             session_mp,
             SOLCLIENT_SUBSCRIBE_FLAGS_WAITFORCONFIRM,
-            topic_p);
+            topic.c_str());
     if (rc != SOLCLIENT_OK) { return returnCode_t::FAILURE; }
 
     return returnCode_t::SUCCESS;
 }
 
 returnCode_t
-SolClientThread::topicUnsubscribe(const char* topic_p)
+SolClientThread::topicUnsubscribe(std::string topic)
 {
     solClient_returnCode_t rc;
     std::lock_guard<std::mutex> lock(mutex_m);
@@ -259,7 +259,7 @@ SolClientThread::topicUnsubscribe(const char* topic_p)
     rc = solClient_session_topicUnsubscribeExt(
             session_mp,
             SOLCLIENT_SUBSCRIBE_FLAGS_WAITFORCONFIRM,
-            topic_p);
+            topic.c_str());
     if (rc != SOLCLIENT_OK) { return returnCode_t::FAILURE; }
 
     return returnCode_t::SUCCESS;

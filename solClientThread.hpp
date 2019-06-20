@@ -32,6 +32,7 @@
 #include <mutex>
 #include <solclient/solClient.h>
 #include <solclient/solClientMsg.h>
+#include <string>
 
 #include "common.hpp"
 
@@ -53,17 +54,17 @@ public:
 
     ~SolClientThread(void);
 
-    returnCode_t createSession(const char* host_p,
-                               const char* vpn_p,
-                               const char* username_p,
-                               const char* password_p);
+    returnCode_t createSession(std::string host,
+                               std::string vpn,
+                               std::string username,
+                               std::string password);
     returnCode_t destroySession(void);
 
     returnCode_t connectSession(void);
     returnCode_t disconnectSession(void);
 
-    returnCode_t topicSubscribe(const char* topic_p);
-    returnCode_t topicUnsubscribe(const char* topic_p);
+    returnCode_t topicSubscribe(std::string topic);
+    returnCode_t topicUnsubscribe(std::string topic);
 
 private:
     SolClientThread(void);

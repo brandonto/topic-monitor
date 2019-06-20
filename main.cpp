@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <lua5.2/lua.hpp>
 
 #include "common.hpp"
@@ -51,10 +52,10 @@ createAndStartSolClientThread()
     //
     SolClientThread* thread_p = SolClientThread::instance();
 
-    const char* host_p     = nullptr;
-    const char* vpn_p      = nullptr;
-    const char* username_p = nullptr;
-    const char* password_p = nullptr;
+    std::string host;
+    std::string vpn;
+    std::string username;
+    std::string password;
 
     // Opens a new lua state and load credentials.lua
     //
@@ -70,18 +71,18 @@ createAndStartSolClientThread()
     //
     // TODO (BTO): Proper error output if file is malformed
     //
-    host_p = utils::lua::getStringValueFromSymbol(L, "host");
-    if (host_p == nullptr) { goto cleanup; }
-    vpn_p = utils::lua::getStringValueFromSymbol(L, "vpn");
-    if (vpn_p == nullptr) { goto cleanup; }
-    username_p = utils::lua::getStringValueFromSymbol(L, "username");
-    if (username_p == nullptr) { goto cleanup; }
-    password_p = utils::lua::getStringValueFromSymbol(L, "password");
-    if (password_p == nullptr) { goto cleanup; }
+    host = utils::lua::getStringValueFromSymbol(L, "host");
+    if (host.empty()) { goto cleanup; }
+    vpn = utils::lua::getStringValueFromSymbol(L, "vpn");
+    if (vpn.empty()) { goto cleanup; }
+    username = utils::lua::getStringValueFromSymbol(L, "username");
+    if (username.empty()) { goto cleanup; }
+    password = utils::lua::getStringValueFromSymbol(L, "password");
+    if (password.empty()) { goto cleanup; }
 
     // Create session
     //
-    rc = thread_p->createSession(host_p, vpn_p, username_p, password_p);
+    rc = thread_p->createSession(host, vpn, username, password);
     if (rc != returnCode_t::SUCCESS) { goto cleanup; }
 
     // Connect to message broker
@@ -154,7 +155,11 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
         const char* topic_p = lua_tostring(L, -2);
 
         SubscriptionInfo info;
-        info.setTopic(topic_p, strlen(topic_p));
+        if (!info.setTopic(topic_p))
+        {
+            printf("Error: topic too long\n");
+            goto cleanup;
+        }
 
         // Parse value field of subscriptionTable (which is another table)
         //
@@ -170,6 +175,9 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
                 goto cleanup;
             }
 
+            // The key can either be "filename" or "timer", get the value of
+            // these keys
+            //
             const char* key_p = lua_tostring(L, -2);
             if (strcmp(key_p, "filename") == 0)
             {
@@ -180,7 +188,11 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
                     goto cleanup;
                 }
                 const char* filename_p = lua_tostring(L, -1);
-                info.setFilename(filename_p, strlen(filename_p));
+                if (!info.setFilename(filename_p))
+                {
+                    printf("Error: filename too long\n");
+                    goto cleanup;
+                }
             }
             else if (strcmp(key_p, "timer") == 0)
             {
@@ -228,17 +240,17 @@ subscribeToMonitoredTopics(void)
 
     SolClientThread* thread_p = SolClientThread::instance();
 
-    // TODO (BTO): Parse through files to find subscription list and subscribe
-    //             to each one.
+    // Get subscription list
     //
     SubscriptionInfoList subscriptions;
     rc = getSubscriptionInfoList(subscriptions);
     if (rc != returnCode_t::SUCCESS) { return returnCode_t::FAILURE; }
 
+    // Subscribe to each topic on the subscription list
+    //
     for (auto it = subscriptions.begin(); it < subscriptions.end(); it++)
     {
-        //printf("%s, %s, %u\n", it->getTopic(), it->getFilename(), it->getTimeout());
-        rc = thread_p->topicSubscribe(it->getTopic());
+        rc = thread_p->topicSubscribe(it->getTopic().c_str());
         if (rc != returnCode_t::SUCCESS) { return returnCode_t::FAILURE; }
 
         // Create a work entry and enqueue it to MonitoringThread's input queue

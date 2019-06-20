@@ -85,11 +85,12 @@ MonitoringThread::handleWorkTypeMessageReceived(
         return;
     }
 
-    if (utils::lua::callOnMessageFunc(luaState_mp, env_p, data_p)
+    if (utils::lua::callMessageFunc(luaState_mp, env_p, data_p)
             != returnCode_t::SUCCESS)
     {
         const char* errorMsg_p = lua_tostring(luaState_mp, -1);
-        printf("Error: onMessage() failed with error \"%s\"\n", errorMsg_p);
+        printf("Error: %s() failed with error \"%s\"\n",
+                LUA_MESSAGE_FUNC, errorMsg_p);
         return;
     }
 }
@@ -101,27 +102,55 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
 
     SubscriptionInfo& info = entry_p->getSubscriptionInfo();
 
+    // Loads lua file into lua state
+    //
     rc = utils::lua::loadFileInEnv(luaState_mp,
                                    info.getFilename(),
                                    info.getFilename());
     if (rc == returnCode_t::FAILURE)
     {
         printf("Error: could not load lua file in env for topic %s\n",
-            info.getTopic());
+                info.getTopic().c_str());
+        goto unsubscribe;
+    }
 
-        // Unsubscribe from topic
+    // Check for existence of message function
+    //
+    if (!utils::lua::isFuncInEnv(luaState_mp,
+                                 info.getFilename(),
+                                 LUA_MESSAGE_FUNC))
+    {
+        printf("Error: no %s() found in %s\n",
+                LUA_MESSAGE_FUNC, info.getFilename().c_str());
+        goto unsubscribe;
+    }
+
+    // Check for existence of timer function
+    //
+    if (utils::lua::isFuncInEnv(luaState_mp,
+                                info.getFilename(),
+                                LUA_TIMER_FUNC))
+    {
+        // TODO (BTO): Set some kind of flag to indicate that we should run
+        //             timer functions for this topic.
         //
-        rc = SolClientThread::instance()->topicUnsubscribe(info.getTopic());
-        if (rc != returnCode_t::SUCCESS)
-        {
-            printf("Error: could not unsubscribe from topic %s\n",
-                info.getTopic());
-            exit(-1);
-        }
-        return;
     }
 
     envTable_m[info.getTopic()] = info.getFilename();
+
+    return;
+
+unsubscribe:
+    // Unsubscribe from topic
+    //
+    rc = SolClientThread::instance()->topicUnsubscribe(info.getTopic().c_str());
+    if (rc != returnCode_t::SUCCESS)
+    {
+        printf("Error: could not unsubscribe from topic %s\n",
+                info.getTopic().c_str());
+        exit(-1);
+    }
+    return;
 }
 
 void
