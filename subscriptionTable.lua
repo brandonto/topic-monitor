@@ -15,6 +15,5 @@ subscriptionTable = {
 
     ["emails"] = {
         ["filename"] = "emails.lua",
-        ["timer"] = 60,
     },
 }

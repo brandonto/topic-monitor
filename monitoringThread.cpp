@@ -127,17 +127,18 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
 
     // Check for existence of timer function
     //
-    if (utils::lua::isFuncInEnv(luaState_mp,
-                                info.getFilename(),
-                                LUA_TIMER_FUNC))
+    if (info.getTimeout() && !utils::lua::isFuncInEnv(luaState_mp,
+                                                      info.getFilename(),
+                                                      LUA_TIMER_FUNC))
     {
-        // TODO (BTO): Set some kind of flag to indicate that we should run
-        //             timer functions for this topic.
-        //
+        printf("Error: no %s() found in %s\n",
+                LUA_TIMER_FUNC, info.getFilename().c_str());
+        goto unsubscribe;
     }
 
+    // Update table with subscription if everything goes well
+    //
     envTable_m[info.getTopic()] = info.getFilename();
-
     return;
 
 unsubscribe:

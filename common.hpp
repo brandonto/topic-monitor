@@ -56,45 +56,10 @@ typedef enum class workType
     UNSUBSCRIBE,
 } workType_t;
 
-// TODO (BTO): Create a move constructor for this object because it is currently
-//             being copied into WorkEntrySubscribe.
-//
-/*class SubscriptionInfo
-{
-public:
-    SubscriptionInfo(void) {}
-    ~SubscriptionInfo(void) {}
-
-    bool setTopic(const char* topic_p, size_t len)
-    {
-        if (len > SOLCLIENT_BUFINFO_MAX_TOPIC_SIZE) { return false; }
-        strncpy(topic_ma, topic_p, len);
-        topic_ma[len] = '\0';
-        return true;
-    }
-    const char* getTopic(void) const { return topic_ma; }
-
-    bool setFilename(const char* filename_p, size_t len)
-    {
-        if (len > MAX_FILENAME_SIZE) { return false; }
-        strncpy(filename_ma, filename_p, len);
-        filename_ma[len] = '\0';
-        return true;
-    }
-    const char* getFilename(void) const { return filename_ma; }
-
-    void setTimeout(uint32_t timeout) { timeout_m = timeout; }
-    uint32_t getTimeout(void) const { return timeout_m; }
-
-private:
-    char     topic_ma[SOLCLIENT_BUFINFO_MAX_TOPIC_SIZE + 1];
-    char     filename_ma[MAX_FILENAME_SIZE + 1];
-    uint32_t timeout_m;
-};*/
 class SubscriptionInfo
 {
 public:
-    SubscriptionInfo(void) {}
+    SubscriptionInfo(void) : timeout_m(0) {}
     ~SubscriptionInfo(void) {}
 
     bool setTopic(std::string topic)
@@ -123,7 +88,8 @@ private:
 };
 typedef std::vector<SubscriptionInfo> SubscriptionInfoList;
 
-// Consider using a custom pool allocator to allocate these objects.
+// TODO (BTO): Consider using a pool allocator to allocate these objects
+//
 class WorkEntry
 {
 public:

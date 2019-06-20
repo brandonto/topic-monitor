@@ -1,7 +1,3 @@
-function onMessage()
+function onMessage(msg)
     print("onMessage(): " .. msg)
-end
-
-function onTimer()
-    print("onTimer (emails)")
 end
