@@ -28,6 +28,7 @@
 //******************************************************************************
 #include "solClientThread.hpp"
 
+#include "log.hpp"
 #include "monitoringThread.hpp"
 
 namespace topicMonitor
@@ -73,7 +74,10 @@ SolClientThread::SolClientThread(void) :
     // constructed once.
     //
     rc = solClient_initialize(SOLCLIENT_LOG_DEFAULT_FILTER, nullptr);
-    if (rc != SOLCLIENT_OK) { printf("Fatal error\n"); exit(-1); }
+    if (rc != SOLCLIENT_OK)
+        LOG(FATAL, "solClient initialization failed");
+
+    LOG(ERROR, "solClient initialized");
 
     // Contexts
     //
@@ -99,7 +103,10 @@ SolClientThread::SolClientThread(void) :
             &context_mp,
             &contextFuncInfo,
             sizeof(contextFuncInfo));
-    if (rc != SOLCLIENT_OK) { printf("Fatal error\n"); exit(-1); }
+    if (rc != SOLCLIENT_OK)
+        LOG(FATAL, "solClient context creation failed");
+
+    LOG(INFO, "solClient context created");
 }
 
 SolClientThread::~SolClientThread(void)
@@ -109,20 +116,23 @@ SolClientThread::~SolClientThread(void)
     if (session_mp != nullptr)
     {
         rc = solClient_session_destroy(&session_mp);
-        if (rc != SOLCLIENT_OK) { printf("Fatal error\n"); exit(-1); }
+        if (rc != SOLCLIENT_OK)
+            LOG(FATAL, "solClient session destruction failed");
     }
 
     if (context_mp != nullptr)
     {
         rc = solClient_context_destroy(&context_mp);
-        if (rc != SOLCLIENT_OK) { printf("Fatal error\n"); exit(-1); }
+        if (rc != SOLCLIENT_OK)
+            LOG(FATAL, "solClient context destruction failed");
     }
 
     // solClient_cleanup() is called here because SolClientThread is only
     // destroyed at program termination.
     //
     rc = solClient_cleanup();
-    if (rc != SOLCLIENT_OK) { printf("Fatal error\n"); exit(-1); }
+    if (rc != SOLCLIENT_OK)
+        LOG(FATAL, "solClient cleanup failed");
 }
 
 returnCode_t
@@ -189,8 +199,13 @@ SolClientThread::createSession(std::string host,
             &session_mp,
             &sessionFuncInfo,
             sizeof(sessionFuncInfo));
-    if (rc != SOLCLIENT_OK) { return returnCode_t::FAILURE; }
+    if (rc != SOLCLIENT_OK)
+    {
+        LOG(ERROR, "solClient session creation failed");
+        return returnCode_t::FAILURE;
+    }
 
+    LOG(INFO, "solClient session created");
     return returnCode_t::SUCCESS;
 }
 
@@ -201,9 +216,11 @@ SolClientThread::destroySession(void)
 
     if (solClient_session_destroy(&session_mp) != SOLCLIENT_OK)
     {
+        LOG(ERROR, "solClient session destruction failed");
         return returnCode_t::FAILURE;
     }
 
+    LOG(INFO, "solClient session destroyed");
     return returnCode_t::SUCCESS;
 }
 
@@ -215,9 +232,11 @@ SolClientThread::connectSession(void)
     std::lock_guard<std::mutex> lock(mutex_m);
     if (solClient_session_connect(session_mp) != SOLCLIENT_OK)
     {
+        LOG(ERROR, "solClient session connection failed");
         return returnCode_t::FAILURE;
     }
 
+    LOG(INFO, "solClient session connected");
     return returnCode_t::SUCCESS;
 }
 
@@ -229,9 +248,11 @@ SolClientThread::disconnectSession(void)
     std::lock_guard<std::mutex> lock(mutex_m);
     if (solClient_session_disconnect(session_mp) != SOLCLIENT_OK)
     {
+        LOG(ERROR, "solClient session disconnection failed");
         return returnCode_t::FAILURE;
     }
 
+    LOG(INFO, "solClient session disconnected");
     return returnCode_t::SUCCESS;
 }
 
@@ -245,8 +266,14 @@ SolClientThread::topicSubscribe(std::string topic)
             session_mp,
             SOLCLIENT_SUBSCRIBE_FLAGS_WAITFORCONFIRM,
             topic.c_str());
-    if (rc != SOLCLIENT_OK) { return returnCode_t::FAILURE; }
+    if (rc != SOLCLIENT_OK)
+    {
+        LOG(WARN, "solClient could not subscribe to topic '" << topic
+                  << "'");
+        return returnCode_t::FAILURE;
+    }
 
+    LOG(INFO, "solClient subscribed to topic '" << topic << "'");
     return returnCode_t::SUCCESS;
 }
 
@@ -260,8 +287,14 @@ SolClientThread::topicUnsubscribe(std::string topic)
             session_mp,
             SOLCLIENT_SUBSCRIBE_FLAGS_WAITFORCONFIRM,
             topic.c_str());
-    if (rc != SOLCLIENT_OK) { return returnCode_t::FAILURE; }
+    if (rc != SOLCLIENT_OK)
+    {
+        LOG(WARN, "solClient could not unsubscribe from topic '" << topic
+                  << "'");
+        return returnCode_t::FAILURE;
+    }
 
+    LOG(INFO, "solClient unsubscribed from topic '" << topic << "'");
     return returnCode_t::SUCCESS;
 }
 

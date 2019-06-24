@@ -28,6 +28,7 @@
 //******************************************************************************
 #include "monitoringThread.hpp"
 
+#include "log.hpp"
 #include "solClientThread.hpp"
 #include "utils.hpp"
 
@@ -39,7 +40,8 @@ MonitoringThread* MonitoringThread::instance_mps = nullptr;
 MonitoringThread::MonitoringThread(void)
 {
     luaState_mp = luaL_newstate();
-    if (luaState_mp == nullptr) { printf("Fatal error\n"); exit(-1); }
+    if (luaState_mp == nullptr)
+        LOG(FATAL, "Could not create lua state");
 
     // Makes all libraries available to lua.
     //
@@ -65,14 +67,14 @@ MonitoringThread::handleWorkTypeMessageReceived(
     rc = solClient_msg_getDestination(msg_p, &dest, sizeof(dest));
     if (rc != SOLCLIENT_OK)
     {
-        printf("Error: could not get message topic\n");
+        LOG(ERROR, "Could not get message topic");
         return;
     }
 
     const char* topic_p = dest.dest;
     if (envTable_m.find(topic_p) == envTable_m.end())
     {
-        printf("Error: topic not found in table\n");
+        LOG(ERROR, "Topic '" << topic_p << "' not found in table");
         return;
     }
     const char* env_p = envTable_m[topic_p].c_str();
@@ -81,7 +83,7 @@ MonitoringThread::handleWorkTypeMessageReceived(
     rc = solClient_msg_getBinaryAttachmentString(msg_p, &data_p);
     if (rc != SOLCLIENT_OK)
     {
-        printf("Error: could not get message data\n");
+        LOG(ERROR, "Could not get message payload");
         return;
     }
 
@@ -89,8 +91,8 @@ MonitoringThread::handleWorkTypeMessageReceived(
             != returnCode_t::SUCCESS)
     {
         const char* errorMsg_p = lua_tostring(luaState_mp, -1);
-        printf("Error: %s() failed with error \"%s\"\n",
-                LUA_MESSAGE_FUNC, errorMsg_p);
+        LOG(ERROR, LUA_MESSAGE_FUNC << "() failed with error \"" << errorMsg_p
+                   << "\"");
         return;
     }
 }
@@ -109,8 +111,10 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
                                    info.getFilename());
     if (rc == returnCode_t::FAILURE)
     {
-        printf("Error: could not load lua file in env for topic %s\n",
-                info.getTopic().c_str());
+        const char* error_p = lua_tostring(luaState_mp, -1);
+        LOG(WARN, "Could not load " << info.getFilename() << ", error = \""
+                  << error_p << "\"");
+        lua_pop(luaState_mp, 1);
         goto unsubscribe;
     }
 
@@ -120,8 +124,8 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
                                  info.getFilename(),
                                  LUA_MESSAGE_FUNC))
     {
-        printf("Error: no %s() found in %s\n",
-                LUA_MESSAGE_FUNC, info.getFilename().c_str());
+        LOG(WARN, "No " << LUA_MESSAGE_FUNC << "() function found in "
+                  << info.getFilename());
         goto unsubscribe;
     }
 
@@ -131,33 +135,29 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
                                                       info.getFilename(),
                                                       LUA_TIMER_FUNC))
     {
-        printf("Error: no %s() found in %s\n",
-                LUA_TIMER_FUNC, info.getFilename().c_str());
+        LOG(WARN, "No " << LUA_TIMER_FUNC << "() function found in "
+                  << info.getFilename());
         goto unsubscribe;
     }
 
     // Update table with subscription if everything goes well
     //
     envTable_m[info.getTopic()] = info.getFilename();
+    LOG(INFO, "monitoringThread subscribed to topic '" << info.getTopic()
+              << "'");
     return;
 
 unsubscribe:
     // Unsubscribe from topic
     //
-    rc = SolClientThread::instance()->topicUnsubscribe(info.getTopic().c_str());
-    if (rc != returnCode_t::SUCCESS)
-    {
-        printf("Error: could not unsubscribe from topic %s\n",
-                info.getTopic().c_str());
-        exit(-1);
-    }
+    SolClientThread::instance()->topicUnsubscribe(info.getTopic());
     return;
 }
 
 void
 MonitoringThread::handleWorkTypeUnsubscribe(WorkEntryUnsubscribe* entry_p)
 {
-    printf("handleWorkTypeUnsubscribe()\n\n");
+    LOG(WARN, __FUNCTION__ << "() unimplemented");
 }
 
 // TODO (BTO): Consider using a worker thread pool to dispatch MESSAGE_RECEIVED
@@ -173,7 +173,11 @@ MonitoringThread::start(void)
     for (;;entry_p = nullptr)
     {
         entry_p = inputQueue_m.pop();
-        if (entry_p == nullptr) { printf("Fatal error\n"); exit(-1); }
+        if (entry_p == nullptr)
+            LOG(FATAL, "NULL work entry received");
+
+        LOG(DEBUG, "Handling work entry of type '"
+                   << workTypeToString(entry_p->getType()) << "'");
 
         switch (entry_p->getType())
         {
@@ -190,7 +194,7 @@ MonitoringThread::start(void)
                 static_cast<WorkEntryUnsubscribe*>(entry_p));
             break;
         default:
-            printf("Unknown work type.\n");
+            LOG(ERROR, "Unknown work type received in work entry.");
             return returnCode_t::FAILURE;
         }
 

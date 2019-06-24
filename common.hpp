@@ -49,12 +49,16 @@ typedef enum class returnCode
     NOTHING_TO_DO,
 } returnCode_t;
 
+std::string returnCodeToString(returnCode_t returnCode);
+
 typedef enum class workType
 {
     MESSAGE_RECEIVED,
     SUBSCRIBE,
     UNSUBSCRIBE,
 } workType_t;
+
+std::string workTypeToString(workType_t workType);
 
 class SubscriptionInfo
 {

@@ -33,6 +33,7 @@
 #include <lua5.2/lua.hpp>
 
 #include "common.hpp"
+#include "log.hpp"
 #include "monitoringThread.hpp"
 #include "solClientThread.hpp"
 #include "threadSafeQueue.hpp"
@@ -63,7 +64,7 @@ createAndStartSolClientThread()
     luaopen_base(L);
     if (luaL_dofile(L, "credentials.lua") != 0)
     {
-        printf("Error: cannot load credentials.lua\n");
+        LOG(ERROR, "Could load credentials.lua");
         goto cleanup;
     }
 
@@ -108,7 +109,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
     lua_State* L = luaL_newstate();
     if (L == nullptr)
     {
-        printf("Error: could not allocate lua state\n");
+        LOG(ERROR, "Could not allocate lua state");
         return returnCode_t::FAILURE;
     }
 
@@ -117,7 +118,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
     luaopen_base(L);
     if (luaL_dofile(L, "subscriptionTable.lua") != 0)
     {
-        printf("Error: cannot load subscriptionTable.lua\n");
+        LOG(ERROR, "Could not load subscriptionTable.lua");
         goto cleanup;
     }
 
@@ -126,7 +127,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
     lua_getglobal(L, "subscriptionTable");
     if (!lua_istable(L, -1))
     {
-        printf("Error: subscriptionTable invalid format\n");
+        LOG(ERROR, "subscriptionTable invalid format");
         goto cleanup;
     }
 
@@ -148,7 +149,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
         //
         if (!lua_isstring(L, -2) || !lua_istable(L, -1))
         {
-            printf("Error: subscriptionTable invalid format\n");
+            LOG(ERROR, "subscriptionTable invalid format");
             goto cleanup;
         }
 
@@ -157,7 +158,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
         SubscriptionInfo info;
         if (!info.setTopic(topic_p))
         {
-            printf("Error: topic too long\n");
+            LOG(ERROR, "Topic too long");
             goto cleanup;
         }
 
@@ -171,7 +172,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
             //
             if (!lua_isstring(L, -2))
             {
-                printf("Error: subscriptionTable invalid format (key not string)\n");
+                LOG(ERROR, "subscriptionTable invalid format (key not string)");
                 goto cleanup;
             }
 
@@ -184,13 +185,13 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
                 seenFile = true;
                 if (!lua_isstring(L, -1))
                 {
-                    printf("Error: subscriptionTable invalid format (filename value not string)\n");
+                    LOG(ERROR, "subscriptionTable invalid format (filename value not string)");
                     goto cleanup;
                 }
                 const char* filename_p = lua_tostring(L, -1);
                 if (!info.setFilename(filename_p))
                 {
-                    printf("Error: filename too long\n");
+                    LOG(ERROR, "filename too long");
                     goto cleanup;
                 }
             }
@@ -198,7 +199,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
             {
                 if (!lua_isnumber(L, -1))
                 {
-                    printf("Error: subscriptionTable invalid format (timer value not integer)\n");
+                    LOG(ERROR, "subscriptionTable invalid format (timer value not integer)");
                     goto cleanup;
                 }
                 uint32_t timeout = lua_tonumber(L, -1);
@@ -206,7 +207,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
             }
             else
             {
-                printf("Error: subscriptionTable invalid format (unknown key)\n");
+                LOG(ERROR, "subscriptionTable invalid format (unknown key)");
                 goto cleanup;
             }
 
@@ -215,7 +216,7 @@ getSubscriptionInfoList(SubscriptionInfoList& subscriptions)
 
         if (!seenFile)
         {
-            printf("Error: subscriptionTable invalid format (filename not seen)\n");
+            LOG(ERROR, "subscriptionTable invalid format (filename not seen)");
             goto cleanup;
         }
 
@@ -236,6 +237,7 @@ cleanup:
 returnCode_t
 subscribeToMonitoredTopics(void)
 {
+    LOG(INFO, "Subscribing to monitored topics");
     returnCode_t rc;
 
     SolClientThread* thread_p = SolClientThread::instance();
@@ -250,8 +252,8 @@ subscribeToMonitoredTopics(void)
     //
     for (auto it = subscriptions.begin(); it < subscriptions.end(); it++)
     {
-        rc = thread_p->topicSubscribe(it->getTopic().c_str());
-        if (rc != returnCode_t::SUCCESS) { return returnCode_t::FAILURE; }
+        rc = thread_p->topicSubscribe(it->getTopic());
+        if (rc != returnCode_t::SUCCESS) { continue; }
 
         // Create a work entry and enqueue it to MonitoringThread's input queue
         //
@@ -293,7 +295,7 @@ createAndStartMonitoringThread(void)
     //
     if (subscribeToMonitoredTopics() != returnCode_t::SUCCESS)
     {
-        printf("Error subscribing to monitored topics.\n");
+        LOG(ERROR, "Could not subscribe to all monitored topics");
         return returnCode_t::FAILURE;
     }
 
@@ -306,7 +308,7 @@ createAndStartMonitoringThread(void)
     //
     if (unsubscribeFromMonitoredTopics() != returnCode_t::SUCCESS)
     {
-        printf("Error subscribing to monitored topics.\n");
+        LOG(ERROR, "Could not unsubscribe from all monitored topics");
         return returnCode_t::FAILURE;
     }
 
@@ -320,15 +322,22 @@ main(int argc, char* argv[])
 {
     using namespace topicMonitor;
 
+    // Log to stdout
+    //
+    Logger::init(std::cout, Logger::logLevel_t::DEBUG);
+    //Logger::init(std::cout, Logger::logLevel_t::INFO);
+    //Logger::init(std::cout, Logger::logLevel_t::WARN);
+    //Logger::init(std::cout, Logger::logLevel_t::ERROR);
+
     if (createAndStartSolClientThread() != returnCode_t::SUCCESS)
     {
-        printf("Error creating and starting SolClientThread.\n");
+        LOG(ERROR, "Could not create and start SolClientThread");
         return -1;
     }
 
     if (createAndStartMonitoringThread() != returnCode_t::SUCCESS)
     {
-        printf("Error creating and starting MonitoringThread.\n");
+        LOG(ERROR, "Could not create and start MonitoringThread");
         return -1;
     }
 
