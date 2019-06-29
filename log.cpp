@@ -185,7 +185,8 @@ Logger::_backtrace(logLevel_t level,
         if ((ret = unw_get_proc_name(&cursor, sym, sizeof(sym), &offset))
             != UNW_ESUCCESS)
         {
-            _libunwindErrorHandler(stream_m, "unw_get_proc_name", (unw_error_t)(-ret));
+            _libunwindErrorHandler(stream_m, "unw_get_proc_name",
+                (unw_error_t)(-ret));
         }
 
         // Demangle the procedure name
@@ -204,7 +205,9 @@ Logger::_backtrace(logLevel_t level,
         stream_m << std::right << std::setw(25) << file_p << ":";
         stream_m << std::left << std::setw(4) << line;
         stream_m << std::setw(9) << logLevelStr;
-        stream_m << " (0x" << ip << ": (" << procedureName_p << "+0x" << offset << ")" << std::endl;
+        stream_m << "0x" << ip;
+        stream_m << ": (" << procedureName_p;
+        stream_m << "+0x" << offset << ")" << std::endl;
     }
 }
 

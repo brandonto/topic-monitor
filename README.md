@@ -23,4 +23,5 @@ Dependencies
 ============
 Lua 5.2
 solClient
+libunwind
 
