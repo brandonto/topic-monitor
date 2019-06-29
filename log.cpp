@@ -30,7 +30,14 @@
 
 #include <assert.h>
 #include <ctime>
+#include <cxxabi.h>
 #include <iomanip>
+
+// We only need local unwinding. Defining UNW_LOCAL_ONLY tells libunwind to
+// select a special implementation optimized for local unwinding.
+//
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
 
 namespace topicMonitor
 {
@@ -50,24 +57,156 @@ Logger::_log(logLevel_t level,
     std::time_t result = std::time(nullptr);
     std::tm *localTime = std::localtime(&result);
     char timeStrBuf[64];
-    if (!std::strftime(timeStrBuf, sizeof(timeStrBuf), "%c", localTime)) {
+    if (!std::strftime(timeStrBuf, sizeof(timeStrBuf), "%c", localTime))
+    {
         std::cout << "timeStrBuf too small" << std::endl;
         exit(-1);
     }
 
-    std::string logLevelStr = " [" + _logLevelToString(level) + "]";
+    std::string logLevelStr = " [" + logLevelToString(level) + "]";
 
-    // Prints formatted log string to stream
+    // Outputs formatted log string to stream
     //
     stream_m << timeStrBuf;
     stream_m << std::right << std::setw(25) << file_p << ":";
     stream_m << std::left << std::setw(4) << line;
     stream_m << std::setw(9) << logLevelStr;
     stream_m << msg << std::endl;
-
-    // Kill program on FATAL
-    //
-    if (level == logLevel_t::FATAL) exit(-1);
 }
+
+static void
+_libunwindErrorHandler(std::ostream& s, std::string funcName, unw_error_t err)
+{
+    // TODO (BTO): Just default to error output and exiting in the mean time...
+    //             decide how to handle libunwind failures later
+    //
+    s << funcName << "() failed with ";
+
+    switch (err)
+    {
+    case UNW_EUNSPEC:
+        s << "UNW_EUNSPEC: \"unspecified (general) error\"";
+        break;
+    case UNW_ENOMEM:
+        s << "UNW_ENOMEM: \"out of memory\"";
+        break;
+    case UNW_EBADREG:
+        s << "UNW_EBADREG: \"bad register number\"";
+        break;
+    case UNW_EREADONLYREG:
+        s << "UNW_EREADONLYREG: \"attempt to write read-only register\"";
+        break;
+    case UNW_ESTOPUNWIND:
+        s << "UNW_ESTOPUNWIND: \"stop unwinding\"";
+        break;
+    case UNW_EINVALIDIP:
+        s << "UNW_EINVALIDIP: \"invalid IP\"";
+        break;
+    case UNW_EBADFRAME:
+        s << "UNW_EBADFRAME: \"bad frame\"";
+        break;
+    case UNW_EINVAL:
+        s << "UNW_EINVAL: \"unsupported operation or bad value\"";
+        break;
+    case UNW_EBADVERSION:
+        s << "UNW_EBADVERSION: \"unwind info has unsupported version\"";
+        break;
+    case UNW_ENOINFO:
+        s << "UNW_ENOINFO: \"no unwind info found\"";
+        break;
+    default:
+        s << "unknown error code";
+        break;
+    }
+
+    s << std::endl;
+    exit(-1);
+}
+
+void
+Logger::_backtrace(logLevel_t level,
+                   const char* file_p,
+                   int line)
+{
+    if (level < logLevel_m) return;
+
+    // Get the local time as a string
+    //
+    std::time_t result = std::time(nullptr);
+    std::tm *localTime = std::localtime(&result);
+    char timeStrBuf[64];
+    if (!std::strftime(timeStrBuf, sizeof(timeStrBuf), "%c", localTime))
+    {
+        std::cout << "timeStrBuf too small" << std::endl;
+        exit(-1);
+    }
+
+    std::string logLevelStr = " [" + logLevelToString(level) + "]";
+
+    // Get a snapshot of the CPU registers (machine-state)
+    //
+    unw_context_t context;
+    int ret;
+    if ((ret = unw_getcontext(&context)) != UNW_ESUCCESS)
+    {
+        _libunwindErrorHandler(stream_m, "unw_getcontext", (unw_error_t)(-ret));
+    }
+
+    // Initialize unwind cursor using context. The cursor should now point to
+    // the current frame in the call stack
+    //
+    unw_cursor_t cursor;
+    if ((ret = unw_init_local(&cursor, &context)) != UNW_ESUCCESS)
+    {
+        _libunwindErrorHandler(stream_m, "unw_init_local", (unw_error_t)(-ret));
+    }
+
+    // Iterate through all frames on the call stack and output the demangled
+    // procedure names along with other relevent information
+    //
+    unw_word_t ip, offset;
+    char sym[256];
+    while ((ret = unw_step(&cursor)) != UNW_ESUCCESS)
+    {
+        if (ret < UNW_ESUCCESS)
+        {
+            _libunwindErrorHandler(stream_m, "unw_step", (unw_error_t)(-ret));
+        }
+
+        // Read the instruction pointer register
+        //
+        if ((ret = unw_get_reg(&cursor, UNW_REG_IP, &ip)) != UNW_ESUCCESS)
+        {
+            _libunwindErrorHandler(stream_m, "unw_get_reg", (unw_error_t)(-ret));
+        }
+
+        // Return the name of the procedure
+        //
+        if ((ret = unw_get_proc_name(&cursor, sym, sizeof(sym), &offset))
+            != UNW_ESUCCESS)
+        {
+            _libunwindErrorHandler(stream_m, "unw_get_proc_name", (unw_error_t)(-ret));
+        }
+
+        // Demangle the procedure name
+        //
+        int status;
+        char* procedureName_p = sym;
+        char* demangledName_p = abi::__cxa_demangle(sym,
+                                                    nullptr,
+                                                    nullptr,
+                                                    &status);
+        if (status == 0) { procedureName_p = demangledName_p; }
+
+        // Outputs formatted stack frame to stream
+        //
+        stream_m << timeStrBuf;
+        stream_m << std::right << std::setw(25) << file_p << ":";
+        stream_m << std::left << std::setw(4) << line;
+        stream_m << std::setw(9) << logLevelStr;
+        stream_m << " (0x" << ip << ": (" << procedureName_p << "+0x" << offset << ")" << std::endl;
+    }
+}
+
 
 } /* namespace topicMonitor */

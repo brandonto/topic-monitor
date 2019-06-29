@@ -33,19 +33,26 @@
 #include <sstream>
 #include <string>
 
-/*
-#define LOG(logLevel, msg) do { \
-    Logger::log(Logger::logLevel, msg); \
-} while (0)
-*/
-
 #define LOG_STREAM(logLevel, msg) do { \
     std::ostringstream oss; \
     oss << msg; \
     topicMonitor::Logger::log(Logger::logLevel_t::logLevel, __FILENAME__, __LINE__, oss.str()); \
 } while (0)
 
-#define LOG(logLevel, msg) LOG_STREAM(logLevel, msg)
+// This macro is the primary interface to the logging system
+//
+#define LOG(logLevel, msg) do { \
+    LOG_STREAM(logLevel, msg); \
+    if (Logger::logLevel_t::logLevel == Logger::logLevel_t::FATAL) exit(-1); \
+} while (0)
+
+// This macro will include a backtrace in the logs, useful for debugging
+//
+#define LOG_TRACE(logLevel, msg) do { \
+    LOG_STREAM(logLevel, msg); \
+    topicMonitor::Logger::backtrace(Logger::logLevel_t::logLevel, __FILENAME__, __LINE__); \
+    if (Logger::logLevel_t::logLevel == Logger::logLevel_t::FATAL) exit(-1); \
+} while (0)
 
 namespace topicMonitor
 {
@@ -64,7 +71,7 @@ public:
 
     // Should be called on startup before any logging is done.
     //
-    static void init(std::ostream &s, logLevel_t level = logLevel_t::WARN)
+    static void init(std::ostream& s, logLevel_t level = logLevel_t::WARN)
     {
         if (logger_mps == nullptr) {
             logger_mps = new Logger(s, level);
@@ -75,12 +82,19 @@ public:
         }
     }
 
-    static void log(logLevel_t level,
+    static void log(logLevel_t  level,
                     const char* file_p,
-                    int line,
+                    int         line,
                     std::string msg)
     {
         Logger::getInstance()->_log(level, file_p, line, msg);
+    }
+
+    static void backtrace(logLevel_t  level,
+                          const char* file_p,
+                          int         line)
+    {
+        Logger::getInstance()->_backtrace(level, file_p, line);
     }
 
 private:
@@ -95,9 +109,16 @@ private:
         return logger_mps;
     }
 
-    void _log(logLevel_t level, const char* file_p, int line, std::string msg);
+    void _log(logLevel_t  level,
+              const char* file_p,
+              int         line,
+              std::string msg);
 
-    std::string _logLevelToString(logLevel_t level)
+    void _backtrace(logLevel_t  level,
+                    const char* file_p,
+                    int         line);
+
+    std::string logLevelToString(logLevel_t level)
     {
         switch (level)
         {

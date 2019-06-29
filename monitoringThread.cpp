@@ -199,7 +199,7 @@ MonitoringThread::start(void)
         }
 
         delete entry_p;
-    } while (1);
+    }
 
     return returnCode_t::SUCCESS;
 }
