@@ -56,6 +56,7 @@ typedef enum class workType
     MESSAGE_RECEIVED,
     SUBSCRIBE,
     UNSUBSCRIBE,
+    TIMER,
 } workType_t;
 
 std::string workTypeToString(workType_t workType);
@@ -127,7 +128,7 @@ public:
     ~WorkEntrySubscribe(void) {}
 
     void setSubscriptionInfo(SubscriptionInfo info) { info_m = info; }
-    SubscriptionInfo& getSubscriptionInfo(void) { return info_m; }
+    const SubscriptionInfo& getSubscriptionInfo(void) const { return info_m; }
 
 private:
     SubscriptionInfo info_m;
@@ -140,10 +141,17 @@ public:
     ~WorkEntryUnsubscribe(void) {}
 
     void setSubscriptionInfo(SubscriptionInfo info) { info_m = info; }
-    SubscriptionInfo& getSubscriptionInfo(void) { return info_m; }
+    const SubscriptionInfo& getSubscriptionInfo(void) const { return info_m; }
 
 private:
     SubscriptionInfo info_m;
+};
+
+class WorkEntryTimer : public WorkEntry
+{
+public:
+    WorkEntryTimer(void) : WorkEntry(workType_t::TIMER) {}
+    ~WorkEntryTimer(void) {}
 };
 
 } /* namespace topicMonitor */

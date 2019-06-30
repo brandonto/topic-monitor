@@ -66,13 +66,17 @@ public:
     returnCode_t topicSubscribe(std::string topic);
     returnCode_t topicUnsubscribe(std::string topic);
 
+    returnCode_t startTimer(void);
+    returnCode_t stopTimer(void);
+
 private:
     SolClientThread(void);
 
-    static SolClientThread*    instance_mps;
-    solClient_opaqueContext_pt context_mp;
-    solClient_opaqueSession_pt session_mp;
-    std::mutex                 mutex_m;
+    static SolClientThread*     instance_mps;
+    solClient_opaqueContext_pt  context_mp;
+    solClient_opaqueSession_pt  session_mp;
+    solClient_context_timerId_t timerId_m;
+    std::mutex                  mutex_m;
 };
 
 } /* namespace topicMonitor */

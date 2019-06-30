@@ -102,7 +102,7 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
 {
     returnCode_t rc;
 
-    SubscriptionInfo& info = entry_p->getSubscriptionInfo();
+    const SubscriptionInfo& info = entry_p->getSubscriptionInfo();
 
     // Loads lua file into lua state
     //
@@ -160,6 +160,12 @@ MonitoringThread::handleWorkTypeUnsubscribe(WorkEntryUnsubscribe* entry_p)
     LOG(WARN, __FUNCTION__ << "() unimplemented");
 }
 
+void
+MonitoringThread::handleWorkTypeTimer(WorkEntryTimer* entry_p)
+{
+    LOG(WARN, __FUNCTION__ << "() unimplemented");
+}
+
 // TODO (BTO): Consider using a worker thread pool to dispatch MESSAGE_RECEIVED
 //             work items, taking special care to not schedule messages on the
 //             same topic to two different worker threads at the same time and
@@ -172,7 +178,7 @@ MonitoringThread::start(void)
 
     for (;;entry_p = nullptr)
     {
-        entry_p = inputQueue_m.pop();
+        entry_p = workQueue_m.pop();
         if (entry_p == nullptr)
             LOG(FATAL, "NULL work entry received");
 
@@ -192,6 +198,10 @@ MonitoringThread::start(void)
         case workType_t::UNSUBSCRIBE:
             handleWorkTypeUnsubscribe(
                 static_cast<WorkEntryUnsubscribe*>(entry_p));
+            break;
+        case workType_t::TIMER:
+            handleWorkTypeTimer(
+                static_cast<WorkEntryTimer*>(entry_p));
             break;
         default:
             LOG(ERROR, "Unknown work type received in work entry.");

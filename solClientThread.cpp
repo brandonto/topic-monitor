@@ -37,15 +37,17 @@ namespace topicMonitor
 SolClientThread* SolClientThread::instance_mps = nullptr;
 
 static solClient_rxMsgCallback_returnCode_t
-sessionMessageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p,
+sessionMessageReceiveCallback(solClient_opaqueSession_pt session_p,
                               solClient_opaqueMsg_pt msg_p,
                               void* user_p)
 {
-    // Create a work entry and enqueue it to MonitoringThread's input queue
+    LOG(DEBUG, "SolClient message received callback invoked");
+
+    // Create a work entry and enqueue it to MonitoringThread's work queue
     //
     WorkEntryMessageReceived* entry_p = new WorkEntryMessageReceived();
     entry_p->setMsg(msg_p);
-    MonitoringThread::instance()->getInputQueue()->push(entry_p);
+    MonitoringThread::instance()->getWorkQueue()->push(entry_p);
 
     // Taking ownership of the message away from the context thread. We are
     // responsible for freeing the message when done processing.
@@ -54,10 +56,22 @@ sessionMessageReceiveCallback(solClient_opaqueSession_pt opaqueSession_p,
 }
 
 static void
-sessionEventCallback(solClient_opaqueSession_pt opaqueSession_p,
+sessionEventCallback(solClient_opaqueSession_pt session_p,
                      solClient_session_eventCallbackInfo_pt eventInfo_p,
-                     void *user_p)
+                     void* user_p)
 {
+    LOG(DEBUG, "SolClient event callback invoked");
+}
+
+static void
+contextTimerCallback(solClient_opaqueContext_pt context_p, void* user_p)
+{
+    LOG(DEBUG, "SolClient timer callback invoked");
+
+    // Create a work entry and enqueue it to MonitoringThread's work queue
+    //
+    WorkEntryTimer* entry_p = new WorkEntryTimer();
+    MonitoringThread::instance()->getWorkQueue()->push(entry_p);
 }
 
 // See Messaging API Concepts from the Solace Developer Guide:
@@ -77,7 +91,7 @@ SolClientThread::SolClientThread(void) :
     if (rc != SOLCLIENT_OK)
         LOG(FATAL, "solClient initialization failed");
 
-    LOG(ERROR, "solClient initialized");
+    LOG(INFO, "solClient initialized");
 
     // Contexts
     //
@@ -295,6 +309,48 @@ SolClientThread::topicUnsubscribe(std::string topic)
     }
 
     LOG(INFO, "solClient unsubscribed from topic '" << topic << "'");
+    return returnCode_t::SUCCESS;
+}
+
+returnCode_t
+SolClientThread::startTimer(void)
+{
+    solClient_returnCode_t rc;
+    std::lock_guard<std::mutex> lock(mutex_m);
+
+    rc = solClient_context_startTimer(
+            context_mp,
+            SOLCLIENT_CONTEXT_TIMER_REPEAT,
+            1000, // Timer ticks every second
+            contextTimerCallback,
+            nullptr,
+            &timerId_m);
+    if (rc != SOLCLIENT_OK)
+    {
+        LOG(ERROR, "solClient could not start timer");
+        return returnCode_t::FAILURE;
+    }
+
+    LOG(INFO, "solClient timer started");
+    return returnCode_t::SUCCESS;
+}
+
+returnCode_t
+SolClientThread::stopTimer(void)
+{
+    std::lock_guard<std::mutex> lock(mutex_m);
+
+    if (timerId_m == SOLCLIENT_CONTEXT_TIMER_ID_INVALID)
+    {
+        return returnCode_t::NOTHING_TO_DO;
+    }
+
+    if (solClient_context_stopTimer(context_mp, &timerId_m) != SOLCLIENT_OK)
+    {
+        LOG(ERROR, "solClient could not stop timer");
+        return returnCode_t::FAILURE;
+    }
+
     return returnCode_t::SUCCESS;
 }
 

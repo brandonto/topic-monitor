@@ -52,6 +52,7 @@ std::string workTypeToString(workType_t workType)
         case workType_t::MESSAGE_RECEIVED: return "MESSAGE_RECEIVED";
         case workType_t::SUBSCRIBE:        return "SUBSCRIBE";
         case workType_t::UNSUBSCRIBE:      return "UNSUBSCRIBE";
+        case workType_t::TIMER:            return "TIMER";
     }
 
     // Control flow should never reach here

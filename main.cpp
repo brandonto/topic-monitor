@@ -91,6 +91,11 @@ createAndStartSolClientThread()
     rc = thread_p->connectSession();
     if (rc != returnCode_t::SUCCESS) { goto cleanup; }
 
+    // Start context timer
+    //
+    rc = thread_p->startTimer();
+    if (rc != returnCode_t::SUCCESS) { goto cleanup; }
+
     lua_close(L);
     return returnCode_t::SUCCESS;
 
@@ -255,11 +260,11 @@ subscribeToMonitoredTopics(void)
         rc = thread_p->topicSubscribe(it->getTopic());
         if (rc != returnCode_t::SUCCESS) { continue; }
 
-        // Create a work entry and enqueue it to MonitoringThread's input queue
+        // Create a work entry and enqueue it to MonitoringThread's work queue
         //
         WorkEntrySubscribe* entry_p = new WorkEntrySubscribe();
         entry_p->setSubscriptionInfo(*it);
-        MonitoringThread::instance()->getInputQueue()->push(entry_p);
+        MonitoringThread::instance()->getWorkQueue()->push(entry_p);
     }
 
     return returnCode_t::SUCCESS;
@@ -272,7 +277,7 @@ unsubscribeFromMonitoredTopics(void)
 
     SolClientThread* thread_p = SolClientThread::instance();
 
-    // TODO (BTO): Unsubscribe to each topic.
+    // TODO (BTO): Unsubscribe from each topic.
     //
     rc = thread_p->topicUnsubscribe("temperature");
     if (rc != returnCode_t::SUCCESS) { return returnCode_t::FAILURE; }
@@ -291,7 +296,7 @@ createAndStartMonitoringThread(void)
 
     // Subscribe to all monitored topics. This must be called after
     // MonitoringThread is created because it will push work entries on the
-    // input queue of MonitoringThread.
+    // work queue of MonitoringThread.
     //
     if (subscribeToMonitoredTopics() != returnCode_t::SUCCESS)
     {
@@ -312,6 +317,9 @@ createAndStartMonitoringThread(void)
         return returnCode_t::FAILURE;
     }
 
+    rc = thread_p->stopTimer();
+    if (rc != returnCode_t::SUCCESS) { goto cleanup; }
+
     return returnCode_t::SUCCESS;
 }
 
@@ -324,8 +332,8 @@ main(int argc, char* argv[])
 
     // Log to stdout
     //
-    Logger::init(std::cout, Logger::logLevel_t::DEBUG);
-    //Logger::init(std::cout, Logger::logLevel_t::INFO);
+    //Logger::init(std::cout, Logger::logLevel_t::DEBUG);
+    Logger::init(std::cout, Logger::logLevel_t::INFO);
     //Logger::init(std::cout, Logger::logLevel_t::WARN);
     //Logger::init(std::cout, Logger::logLevel_t::ERROR);
 

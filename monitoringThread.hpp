@@ -41,7 +41,7 @@
 namespace topicMonitor
 {
 
-typedef ThreadSafeQueue<WorkEntry*> InputQueue;
+typedef ThreadSafeQueue<WorkEntry*> WorkQueue;
 typedef std::unordered_map<std::string, std::string> LuaEnvTable;
 
 class MonitoringThread
@@ -58,7 +58,7 @@ public:
     }
     ~MonitoringThread(void);
 
-    InputQueue* getInputQueue(void) { return &inputQueue_m; }
+    WorkQueue* getWorkQueue(void) { return &workQueue_m; }
 
     returnCode_t start(void);
 
@@ -68,9 +68,10 @@ private:
     void handleWorkTypeMessageReceived(WorkEntryMessageReceived* entry_p);
     void handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p);
     void handleWorkTypeUnsubscribe(WorkEntryUnsubscribe* entry_p);
+    void handleWorkTypeTimer(WorkEntryTimer* entry_p);
 
     static MonitoringThread* instance_mps;
-    InputQueue               inputQueue_m;
+    WorkQueue                workQueue_m;
     lua_State*               luaState_mp;
     LuaEnvTable              envTable_m;
 };
