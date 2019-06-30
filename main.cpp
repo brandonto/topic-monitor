@@ -317,8 +317,8 @@ createAndStartMonitoringThread(void)
         return returnCode_t::FAILURE;
     }
 
-    rc = thread_p->stopTimer();
-    if (rc != returnCode_t::SUCCESS) { goto cleanup; }
+    rc = SolClientThread::instance()->stopTimer();
+    if (rc != returnCode_t::SUCCESS) { return returnCode_t::FAILURE; }
 
     return returnCode_t::SUCCESS;
 }
