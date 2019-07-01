@@ -110,6 +110,19 @@ lua::callMessageFunc(lua_State* L, std::string env, std::string data)
     return returnCode_t::SUCCESS;
 }
 
+returnCode_t
+lua::callTimerFunc(lua_State* L, std::string env)
+{
+    lua_getfield(L, LUA_REGISTRYINDEX, env.c_str());
+    lua_getfield(L, -1, LUA_TIMER_FUNC);
+    if (lua_pcall(L, 0, 0, 0) != LUA_OK)
+    {
+        return returnCode_t::FAILURE;
+    }
+
+    return returnCode_t::SUCCESS;
+}
+
 void
 lua::stackTrace(lua_State *L)
 {

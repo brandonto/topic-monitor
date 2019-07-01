@@ -70,7 +70,7 @@ contextTimerCallback(solClient_opaqueContext_pt context_p, void* user_p)
 
     // Create a work entry and enqueue it to MonitoringThread's work queue
     //
-    WorkEntryTimer* entry_p = new WorkEntryTimer();
+    WorkEntryTimerTick* entry_p = new WorkEntryTimerTick();
     MonitoringThread::instance()->getWorkQueue()->push(entry_p);
 }
 

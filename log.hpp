@@ -34,9 +34,9 @@
 #include <string>
 
 #define LOG_STREAM(logLevel, msg) do { \
-    std::ostringstream oss; \
-    oss << msg; \
-    topicMonitor::Logger::log(Logger::logLevel_t::logLevel, __FILENAME__, __LINE__, oss.str()); \
+    std::ostringstream __oss; \
+    __oss << msg; \
+    topicMonitor::Logger::log(Logger::logLevel_t::logLevel, __FILENAME__, __LINE__, __oss.str()); \
 } while (0)
 
 // This macro is the primary interface to the logging system
@@ -75,10 +75,10 @@ public:
     {
         if (logger_mps == nullptr) {
             logger_mps = new Logger(s, level);
-            LOG(INFO, "Logger initialized.");
+            LOG(INFO, "Logger initialized");
         }
         else {
-            LOG(WARN, "Logger has already been initialized.");
+            LOG(WARN, "Logger has already been initialized");
         }
     }
 

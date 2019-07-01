@@ -93,6 +93,7 @@ MonitoringThread::handleWorkTypeMessageReceived(
         const char* errorMsg_p = lua_tostring(luaState_mp, -1);
         LOG(ERROR, LUA_MESSAGE_FUNC << "() failed with error \"" << errorMsg_p
                    << "\"");
+        lua_pop(luaState_mp, 1);
         return;
     }
 }
@@ -140,6 +141,11 @@ MonitoringThread::handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p)
         goto unsubscribe;
     }
 
+    if (info.getTimeout())
+    {
+        timeoutWheel_m.add(info.getTopic(), info.getTimeout());
+    }
+
     // Update table with subscription if everything goes well
     //
     envTable_m[info.getTopic()] = info.getFilename();
@@ -161,9 +167,36 @@ MonitoringThread::handleWorkTypeUnsubscribe(WorkEntryUnsubscribe* entry_p)
 }
 
 void
-MonitoringThread::handleWorkTypeTimer(WorkEntryTimer* entry_p)
+MonitoringThread::handleWorkTypeTimerTick(WorkEntryTimerTick* entry_p)
 {
-    LOG(WARN, __FUNCTION__ << "() unimplemented");
+    timeoutWheel_m.tick();
+}
+
+void
+MonitoringThread::handleWorkTypeTimeout(WorkEntryTimeout* entry_p)
+{
+    std::string topic = entry_p->getTopic();
+
+    LOG(INFO, "Executing timer function for topic '" << topic << "'");
+
+    if (envTable_m.find(topic) == envTable_m.end())
+    {
+        LOG(ERROR, "Topic '" << topic << "' not found in table");
+        return;
+    }
+    const char* env_p = envTable_m[topic].c_str();
+
+    if (utils::lua::callTimerFunc(luaState_mp, env_p)
+            != returnCode_t::SUCCESS)
+    {
+        const char* errorMsg_p = lua_tostring(luaState_mp, -1);
+        LOG(ERROR, LUA_TIMER_FUNC << "() failed with error \"" << errorMsg_p
+                   << "\"");
+        lua_pop(luaState_mp, 1);
+        return;
+    }
+
+    timeoutWheel_m.add(topic, entry_p->getTimeout());
 }
 
 // TODO (BTO): Consider using a worker thread pool to dispatch MESSAGE_RECEIVED
@@ -199,9 +232,13 @@ MonitoringThread::start(void)
             handleWorkTypeUnsubscribe(
                 static_cast<WorkEntryUnsubscribe*>(entry_p));
             break;
-        case workType_t::TIMER:
-            handleWorkTypeTimer(
-                static_cast<WorkEntryTimer*>(entry_p));
+        case workType_t::TIMER_TICK:
+            handleWorkTypeTimerTick(
+                static_cast<WorkEntryTimerTick*>(entry_p));
+            break;
+        case workType_t::TIMEOUT:
+            handleWorkTypeTimeout(
+                static_cast<WorkEntryTimeout*>(entry_p));
             break;
         default:
             LOG(ERROR, "Unknown work type received in work entry.");

@@ -56,6 +56,9 @@ namespace lua
                                  std::string env,
                                  std::string data);
 
+    returnCode_t callTimerFunc(lua_State* L,
+                               std::string env);
+
     void stackTrace(lua_State *L);
 } /* namespace lua */
 

@@ -7,6 +7,9 @@ backup/
 # Vim swap files
 *.swp
 
+# Ctags generated symbol table
+tags
+
 # Binary
 topic-monitor
 

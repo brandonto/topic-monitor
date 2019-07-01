@@ -26,57 +26,62 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 //******************************************************************************
-#ifndef _TOPIC_MONITOR_MONITORING_THREAD_HPP_
-#define _TOPIC_MONITOR_MONITORING_THREAD_HPP_
+#ifndef _TOPIC_MONITOR_TIMEOUT_WHEEL_HPP_
+#define _TOPIC_MONITOR_TIMEOUT_WHEEL_HPP_
 
-#include <lua5.2/lua.hpp>
-#include <solclient/solClient.h>
-#include <solclient/solClientMsg.h>
-#include <string>
-#include <unordered_map>
+#include <array>
+#include <list>
 
 #include "common.hpp"
-#include "timeoutWheel.hpp"
 
 namespace topicMonitor
 {
 
-class MonitoringThread
+class TimeoutInfo
 {
 public:
-    typedef std::unordered_map<std::string, std::string> LuaEnvTable;
+    TimeoutInfo(std::string topic, uint32_t timeout, uint32_t iterationsLeft) :
+        topic_m(topic),
+        timeout_m(timeout),
+        iterationsLeft_m(iterationsLeft) {};
+    ~TimeoutInfo(void) {}
 
-    static MonitoringThread* instance(void)
-    {
-        if (instance_mps == nullptr)
-        {
-            instance_mps = new MonitoringThread();
-        }
+    void setTopic(std::string topic) { topic_m = topic; }
+    std::string getTopic(void) const { return topic_m; }
 
-        return instance_mps;
-    }
-    ~MonitoringThread(void);
+    void setTimeout(uint32_t timeout) { timeout_m = timeout; }
+    uint32_t getTimeout(void) const { return timeout_m; }
 
-    WorkQueue* getWorkQueue(void) { return &workQueue_m; }
-
-    returnCode_t start(void);
+    void setIterationsLeft(uint32_t iterationsLeft)
+        { iterationsLeft_m = iterationsLeft; }
+    uint32_t getIterationsLeft(void) const { return iterationsLeft_m; }
 
 private:
-    MonitoringThread(void);
+    std::string topic_m;
+    uint32_t    timeout_m;
+    uint32_t    iterationsLeft_m;
+};
 
-    void handleWorkTypeMessageReceived(WorkEntryMessageReceived* entry_p);
-    void handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p);
-    void handleWorkTypeUnsubscribe(WorkEntryUnsubscribe* entry_p);
-    void handleWorkTypeTimerTick(WorkEntryTimerTick* entry_p);
-    void handleWorkTypeTimeout(WorkEntryTimeout* entry_p);
+// TODO (BTO): Provide documentation for this class
+//
+class TimeoutWheel
+{
+public:
+    typedef std::list<TimeoutInfo>          TimeoutInfoList;
+    typedef std::array<TimeoutInfoList, 60> TimeoutInfoWheel;
 
-    static MonitoringThread* instance_mps;
-    WorkQueue                workQueue_m;
-    lua_State*               luaState_mp;
-    LuaEnvTable              envTable_m;
-    TimeoutWheel             timeoutWheel_m;
+    TimeoutWheel(void) : ticks_m(0) {}
+    ~TimeoutWheel(void) {}
+
+    void add(std::string topic, uint32_t timeout);
+    void tick(void);
+    void dumpState(void);
+
+private:
+    TimeoutInfoWheel wheel_m;
+    uint32_t         ticks_m;
 };
 
 } /* namespace topicMonitor */
 
-#endif /* _TOPIC_MONITOR_MONITORING_THREAD_HPP_ */
+#endif /* _TOPIC_MONITOR_TIMEOUT_WHEEL_HPP_ */

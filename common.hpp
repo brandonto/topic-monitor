@@ -35,6 +35,8 @@
 #include <string>
 #include <vector>
 
+#include "threadSafeQueue.hpp"
+
 namespace topicMonitor
 {
 
@@ -56,7 +58,8 @@ typedef enum class workType
     MESSAGE_RECEIVED,
     SUBSCRIBE,
     UNSUBSCRIBE,
-    TIMER,
+    TIMER_TICK,
+    TIMEOUT,
 } workType_t;
 
 std::string workTypeToString(workType_t workType);
@@ -105,7 +108,7 @@ public:
     workType_t getType(void) const { return type_m; }
 
 private:
-    workType_t             type_m;
+    workType_t type_m;
 };
 
 class WorkEntryMessageReceived : public WorkEntry
@@ -147,12 +150,31 @@ private:
     SubscriptionInfo info_m;
 };
 
-class WorkEntryTimer : public WorkEntry
+class WorkEntryTimerTick : public WorkEntry
 {
 public:
-    WorkEntryTimer(void) : WorkEntry(workType_t::TIMER) {}
-    ~WorkEntryTimer(void) {}
+    WorkEntryTimerTick(void) : WorkEntry(workType_t::TIMER_TICK) {}
+    ~WorkEntryTimerTick(void) {}
 };
+
+class WorkEntryTimeout : public WorkEntry
+{
+public:
+    WorkEntryTimeout(void) : WorkEntry(workType_t::TIMEOUT) {}
+    ~WorkEntryTimeout(void) {}
+
+    void setTopic(std::string topic) { topic_m = topic; }
+    std::string getTopic(void) const { return topic_m; }
+
+    void setTimeout(uint32_t timeout) { timeout_m = timeout; }
+    uint32_t getTimeout(void) const { return timeout_m; }
+
+private:
+    std::string topic_m;
+    uint32_t    timeout_m;
+};
+
+typedef ThreadSafeQueue<WorkEntry*> WorkQueue;
 
 } /* namespace topicMonitor */
 

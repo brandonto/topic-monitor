@@ -349,5 +349,7 @@ main(int argc, char* argv[])
         return -1;
     }
 
+    LOG(ERROR, "Shutting down topic-monitor process");
+
     return 0;
 }

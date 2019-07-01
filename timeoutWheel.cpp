@@ -26,57 +26,81 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 //******************************************************************************
-#ifndef _TOPIC_MONITOR_MONITORING_THREAD_HPP_
-#define _TOPIC_MONITOR_MONITORING_THREAD_HPP_
-
-#include <lua5.2/lua.hpp>
-#include <solclient/solClient.h>
-#include <solclient/solClientMsg.h>
-#include <string>
-#include <unordered_map>
-
-#include "common.hpp"
 #include "timeoutWheel.hpp"
+
+#include <sstream>
+
+#include "log.hpp"
+#include "monitoringThread.hpp"
 
 namespace topicMonitor
 {
 
-class MonitoringThread
+// TODO (BTO): Provide documentation for this method
+//
+void
+TimeoutWheel::add(std::string topic, uint32_t timeout)
 {
-public:
-    typedef std::unordered_map<std::string, std::string> LuaEnvTable;
+    uint32_t minutes = timeout / 60;
+    uint32_t seconds = timeout % 60;
 
-    static MonitoringThread* instance(void)
+    uint32_t curWheelIndex = ticks_m % 60;
+    uint32_t indexToInsert = (curWheelIndex + seconds) % 60;
+
+    uint32_t iterationsLeft = (seconds == 0)?(minutes -1):minutes;
+
+    TimeoutInfoList& list = wheel_m[indexToInsert];
+    list.emplace_back(topic, timeout, iterationsLeft);
+}
+
+// TODO (BTO): Provide documentation for this method
+//
+void
+TimeoutWheel::tick(void)
+{
+    ticks_m = (ticks_m + 1) % 60;
+
+    TimeoutInfoList& list = wheel_m[ticks_m];
+    auto it = list.begin();
+    while (it != list.end())
     {
-        if (instance_mps == nullptr)
+        TimeoutInfo& info = *it;
+        if (info.getIterationsLeft() == 0)
         {
-            instance_mps = new MonitoringThread();
+            // Create a work entry and enqueue it to MonitoringThread's work
+            // queue
+            //
+            WorkEntryTimeout* entry_p = new WorkEntryTimeout();
+            entry_p->setTopic(info.getTopic());
+            entry_p->setTimeout(info.getTimeout());
+            MonitoringThread::instance()->getWorkQueue()->push(entry_p);
+
+            it = list.erase(it);
         }
-
-        return instance_mps;
+        else
+        {
+            info.setIterationsLeft(info.getIterationsLeft()-1);
+            it++;
+        }
     }
-    ~MonitoringThread(void);
+}
 
-    WorkQueue* getWorkQueue(void) { return &workQueue_m; }
+void
+TimeoutWheel::dumpState(void)
+{
+    std::ostringstream oss;
+    for (uint32_t i=0; i<wheel_m.max_size(); i++)
+    {
+        oss << i << ":{";
+        TimeoutInfoList& list = wheel_m[i];
+        for (TimeoutInfo& info : list)
+        {
+            oss << info.getTopic() << ",";
+        }
+        oss << "}, ";
+    }
 
-    returnCode_t start(void);
-
-private:
-    MonitoringThread(void);
-
-    void handleWorkTypeMessageReceived(WorkEntryMessageReceived* entry_p);
-    void handleWorkTypeSubscribe(WorkEntrySubscribe* entry_p);
-    void handleWorkTypeUnsubscribe(WorkEntryUnsubscribe* entry_p);
-    void handleWorkTypeTimerTick(WorkEntryTimerTick* entry_p);
-    void handleWorkTypeTimeout(WorkEntryTimeout* entry_p);
-
-    static MonitoringThread* instance_mps;
-    WorkQueue                workQueue_m;
-    lua_State*               luaState_mp;
-    LuaEnvTable              envTable_m;
-    TimeoutWheel             timeoutWheel_m;
-};
+    LOG(ERROR, oss.str());
+}
 
 } /* namespace topicMonitor */
-
-#endif /* _TOPIC_MONITOR_MONITORING_THREAD_HPP_ */
