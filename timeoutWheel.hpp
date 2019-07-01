@@ -62,7 +62,19 @@ private:
     uint32_t    iterationsLeft_m;
 };
 
-// TODO (BTO): Provide documentation for this class
+// This class maintains a circular array of 60 lists of TimeoutInfo objects that
+// correspond to every second in a minute.
+//
+// When this class is told to track a timeout through the add() method, a
+// TimeoutInfo object is created and added to the list of TimeoutInfo objects at
+// a calculated index relative to the current index.
+//
+// Every second, MonitoringThread receives a TIMER event and calls the tick()
+// method of this class during the handling of the TIMER event. On each tick,
+// the current index is incremented and the list of TimeoutInfo objects at that
+// index is traversed. Any TimeoutInfo objects on that list that has expired is
+// removed and an event is sent to MonitoringThread with information about the
+// timeout.
 //
 class TimeoutWheel
 {
